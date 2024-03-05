@@ -21,7 +21,8 @@ class Machine:
 @dataclass
 class Unit:
     unit: str
-    machine: Machine
+    machine: str
+    hostname: str
     app: str
     charm: str
     workload: str

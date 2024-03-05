@@ -7,8 +7,8 @@
 import pdb
 import argparse
 import json
-from jockey import collectors, filters, status_keeper
-from jockey.types import ObjectType
+from jockey import collectors, filters, juju_types, status_keeper
+from jockey.utils import print_table
 
 
 def main(args: argparse.Namespace):
@@ -22,19 +22,20 @@ def main(args: argparse.Namespace):
     else:
         status = status_keeper.get_juju_status()
 
-    if args.object in ObjectType.APP.value:
+    if args.object in juju_types.ObjectType.APP.value:
         objects = collectors.get_applications(status)
-    elif args.object in ObjectType.MACHINE.value:
+        headers = juju_types.Application.__annotations__.keys()
+    elif args.object in juju_types.ObjectType.MACHINE.value:
         objects = collectors.get_machines(status)
-    elif args.object in ObjectType.UNIT.value:
+        headers = juju_types.Machine.__annotations__.keys()
+    elif args.object in juju_types.ObjectType.UNIT.value:
         objects = collectors.get_units(status)
+        headers = juju_types.Unit.__annotations__.keys()
     else:
         raise KeyError(f"Unknown object type: {args.object}")
 
-    # fs = filters.parse_filters(args.filters)
-    for obj in objects:
-        if all([f(obj) for f in args.filters]):
-            print(obj)
+    filtered_objects = [obj for obj in objects if all([f(obj) for f in args.filters])]
+    print_table(filtered_objects, columns=args.columns or headers, headers=True)
 
 
 def argument_parser() -> argparse.ArgumentParser:
@@ -51,7 +52,7 @@ def argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "object",
         choices=[
-            abbrev for object_type in ObjectType for abbrev in object_type.value
+            abbrev for object_type in juju_types.ObjectType for abbrev in object_type.value
         ],
         nargs="?",
         help="Choose an object type to seek",
@@ -74,6 +75,13 @@ def argument_parser() -> argparse.ArgumentParser:
         "--file",
         type=argparse.FileType("r"),
         help="Use a local Juju status JSON file",
+    )
+
+    parser.add_argument(
+        "-c",
+        dest="columns",
+        nargs="*",
+        help="Select which columns to show",
     )
 
     return parser

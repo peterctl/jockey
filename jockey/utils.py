@@ -2,8 +2,29 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Generator, Optional, List
-from jockey.types import ObjectType
+from jockey.juju_types import ObjectType
 
+
+def print_table(objs: List[Any], columns: List[str], headers: bool = True):
+    # Check max size for each column
+    col_lens: Dict[str, int] = { col: len(col) for col in columns }
+    for obj in objs:
+        for col in columns:
+            col_len = len(str(getattr(obj, col)))
+            if col_len > col_lens.get(col, 0):
+                col_lens[col] = col_len
+
+    # Display the headers
+    if headers:
+        for col in columns:
+            print(col.upper().ljust(col_lens[col] + 2), end="")
+        print()
+
+    # Display each row
+    for obj in objs:
+        for col in columns:
+            print(str(getattr(obj, col)).ljust(col_lens[col] + 2), end="")
+        print()
 
 JujuStatus = Dict[str, Any]
 
