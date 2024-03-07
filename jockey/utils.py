@@ -1,21 +1,8 @@
-#!/bin/python3
-# Jockey is a CLI utility that facilitates quick retrieval of Juju objects that
-# match given filters.
-# Author: Connor Chamberlain
-
-import pdb
-import argparse
-import json
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, NamedTuple, Generator, Optional, List, Tuple
-
-from status_keeper import (
-    retrieve_juju_cache,
-    cache_juju_status,
-    read_local_juju_status_file,
-)
+from typing import Any, Dict, Generator, Optional, List
+from jockey.types import ObjectType
 
 
 JujuStatus = Dict[str, Any]
@@ -26,34 +13,6 @@ class FilterMode(Enum):
     CONTAINS = "~"
     NOT_EQUALS = "^="
     NOT_CONTAINS = "^~"
-
-
-class ObjectType(Enum):
-    CHARM = ("charms", "charm", "c")
-    APP = ("app", "apps", "application", "applications", "a")
-    UNIT = ("units", "unit", "u")
-    MACHINE = ("machines", "machine", "m")
-    IP = ("address", "addresses", "ips", "ip", "i")
-    HOSTNAME = ("hostnames", "hostname", "host", "hosts", "h")
-
-
-@dataclass
-class JockeyFilter:
-    obj_type: ObjectType
-    mode: FilterMode
-    content: str
-
-
-def pretty_print_keys(data: JujuStatus, depth: int = 1) -> None:
-    """Print a dictionary's keys in a heirarchy."""
-    if depth < 1:
-        return
-
-    for key, value in data.items():
-        print(" |" * depth + key)
-
-        if isinstance(value, dict):
-            pretty_print_keys(data[key], depth=depth - 1)
 
 
 def convert_object_abbreviation(abbrev: str) -> Optional[ObjectType]:
@@ -75,6 +34,13 @@ def convert_object_abbreviation(abbrev: str) -> Optional[ObjectType]:
     return next(
         (obj_type for obj_type in ObjectType if abbrev in obj_type.value), None
     )
+
+
+@dataclass
+class JockeyFilter:
+    obj_type: ObjectType
+    mode: FilterMode
+    content: str
 
 
 def parse_filter_string(
@@ -146,42 +112,16 @@ def check_filter_match(jockey_filter: JockeyFilter, value: str) -> bool:
     return action(jockey_filter.content, value)
 
 
-def is_app_principal(status: JujuStatus, app_name: str) -> bool:
-    """
-    Test if a given application is principal.  True indicates principal and
-    False indicates subordinate.
+def pretty_print_keys(data: JujuStatus, depth: int = 1) -> None:
+    """Print a dictionary's keys in a heirarchy."""
+    if depth < 1:
+        return
 
-    Arguments
-    =========
-    status (JujuStatus)
-        The current Juju status in json format.
-    app_name (str)
-        The name of the application to check.
+    for key, value in data.items():
+        print(" |" * depth + key)
 
-    Returns
-    =======
-    is_principal (bool)
-        Whether the indicated application is principal.
-    """
-    return "subordinate-to" not in status["applications"][app_name]
-
-
-def get_principal_unit_for_subordinate(
-    status: JujuStatus, unit_name: str
-) -> str:
-    """Get the name of a princpal unit for a given subordinate unit."""
-    for app, data in status["applications"].items():
-
-        # Skip other subordinate applications
-        if not is_app_principal(status, app):
-            continue
-
-        # Check if given unit is a subordinate of any of these units
-        for unit, unit_data in data["units"].items():
-            if unit_name in unit_data["subordinates"]:
-                return unit
-
-    return ""
+        if isinstance(value, dict):
+            pretty_print_keys(data[key], depth=depth - 1)
 
 
 def get_applications(status: JujuStatus) -> Generator[str, None, None]:
@@ -306,6 +246,26 @@ def get_ips(status: JujuStatus) -> Generator[str, None, None]:
     for machine in status["machines"]:
         for address in machine["ip-addresses"]:
             yield address
+
+
+def is_app_principal(status: JujuStatus, app_name: str) -> bool:
+    """
+    Test if a given application is principal.  True indicates principal and
+    False indicates subordinate.
+
+    Arguments
+    =========
+    status (JujuStatus)
+        The current Juju status in json format.
+    app_name (str)
+        The name of the application to check.
+
+    Returns
+    =======
+    is_principal (bool)
+        Whether the indicated application is principal.
+    """
+    return "subordinate-to" not in status["applications"][app_name]
 
 
 def charm_to_applications(
@@ -666,73 +626,3 @@ def filter_units(
             continue
 
         yield unit
-
-
-def main(args: argparse.Namespace):
-    # Perform any requested cache refresh
-    if args.refresh:
-        cache_juju_status()
-
-    # Get status
-    status = (
-        retrieve_juju_cache()
-        if not args.file
-        else read_local_juju_status_file(args.file)
-    )
-
-    RETRIEVAL_MAP = {
-        ObjectType.CHARM: None,
-        ObjectType.APP: None,
-        ObjectType.UNIT: filter_units,
-        ObjectType.MACHINE: None,
-        ObjectType.IP: None,
-        ObjectType.HOSTNAME: None,
-    }
-
-    obj_type = convert_object_abbreviation(args.object)
-
-    action = RETRIEVAL_MAP[obj_type]
-    print(" ".join(action(status, args.filters)))
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Jockey - All your Juju objects at your fingertips."
-    )
-
-    # Add cache refresh flag
-    parser.add_argument(
-        "--refresh", action="store_true", help="Force a cache update"
-    )
-
-    # Add object type argument
-    parser.add_argument(
-        "object",
-        choices=[
-            abbrev for object_type in ObjectType for abbrev in object_type.value
-        ],
-        nargs="?",
-        help="Choose an object type to seek",
-    )
-
-    # Add filters as positional arguments
-    filters_help = (
-        "Specify filters for the query. Each filter should be in the format"
-        "`key operator value`. Supported operators: = != ~."
-        "For example:"
-        "  app=nova-compute hostname~ubun"
-    )
-    parser.add_argument(
-        "filters", type=parse_filter_string, nargs="*", help=filters_help
-    )
-
-    # Optional import from a json file
-    parser.add_argument(
-        "-f",
-        "--file",
-        type=argparse.FileType("r"),
-        help="Use a local Juju status JSON file",
-    )
-
-    args = parser.parse_args()
-    main(args)

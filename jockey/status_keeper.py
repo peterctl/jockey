@@ -5,12 +5,13 @@ import subprocess
 from typing import Any, Dict
 
 
-JOCKEY_PATH = os.path.expanduser("~/.jockey/")
-CACHE_PATH = f"{JOCKEY_PATH}cache.json"
-CONFIG_PATH = f"{JOCKEY_PATH}jockey.conf"
+CACHE_DIR = os.path.expanduser("~/.cache/jockey")
+CACHE_PATH = f"{CACHE_DIR}/cache.json"
+CONFIG_DIR = os.path.expanduser("~/.config/jockey")
+CONFIG_PATH = f"{CONFIG_DIR}/jockey.conf"
 
 
-def get_current_juju_status_json() -> str:
+def get_current_juju_status() -> str:
     """
     Use the Juju CLI to get the current Juju status.
     """
@@ -21,7 +22,6 @@ def get_current_juju_status_json() -> str:
         return result.stdout
     else:
         raise Exception("Juju status command failed.")
-    return ""
 
 
 def cache_juju_status() -> None:
@@ -29,10 +29,10 @@ def cache_juju_status() -> None:
     Cache the current Juju status in json format.  Creates the jockey directory
     if it does not already exist.
     """
-    if not os.path.exists(JOCKEY_PATH):
-        os.makedirs(JOCKEY_PATH)
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR)
 
-    status = get_current_juju_status_json()
+    status = get_current_juju_status()
     with open(CACHE_PATH, "w") as file:
         file.write(status)
 
@@ -54,26 +54,23 @@ def is_cache_update_needed() -> bool:
     return False
 
 
-def retrieve_juju_cache() -> Dict[str, Any]:
+def read_local_juju_status_file(filepath: str) -> Dict[str, Any]:
     """
-    Retrieve the cached Juju status.  This will create or refresh the cash, if
+    Import Juju status from a local JSON file.
+    """
+    filepath = os.path.abspath(filepath)
+    with open(filepath, "r") as file:
+        status = json.load(file)
+
+    return status
+
+
+def get_juju_status() -> Dict[str, Any]:
+    """
+    Retrieve the cached Juju status. This will create or refresh the cache, if
     needed.
     """
     if is_cache_update_needed():
         cache_juju_status()
 
-    with open(CACHE_PATH, "r") as file:
-        status = json.loads(file.read())
-
-    return status
-
-
-def read_local_juju_status_file(filepath: str) -> Dict[str, Any]:
-    """
-    Import Juju status from a local JSON file.
-    """
-    filepath = os.path.abspath(filepath.name)
-    with open(filepath, "r") as file:
-        status = json.loads(file.read())
-
-    return status
+    return read_local_juju_status_file(CACHE_PATH)
