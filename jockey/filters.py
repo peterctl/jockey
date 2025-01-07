@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Tuple, Type, TypeVar
 
 T = TypeVar('T')
 JockeyFilter = Callable[[T, T], bool]
+FieldParser = Callable[[str], T]
 
 
 def equals_filter(value: str, query: str) -> bool:
@@ -60,15 +61,13 @@ def parse_bool(value: str) -> bool:
     return value.lower() in ['true', 't', 'yes', 'y', '1']
 
 
-TYPE_PARSERS: Dict[Type[T], Callable[[str], T]] = {
+TYPE_PARSERS: Dict[Type, FieldParser] = {
     bool: parse_bool,
 }
 
 
-def get_field_parser(field_type: Type[T]) -> Callable[[str], T]:
-    if (parser := TYPE_PARSERS.get(field_type)):
-        return parser
-    return field_type
+def get_field_parser(field_type: Type[T]) -> FieldParser[T]:
+    return TYPE_PARSERS.get(field_type, field_type)
 
 
 def parse_filter(filter_str: str) -> Callable[[Dict[str, Any]], bool]:
