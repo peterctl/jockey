@@ -55,7 +55,10 @@ def list_abbreviations() -> str:
     pad = 15
 
     header = "OBJECT TYPE".ljust(pad, " ") + "SHORT NAMES"
-    lines = [obj_type.value[0].ljust(pad, " ") + ", ".join(obj_type.value[1:]) for obj_type in ObjectType]
+    lines = [
+        obj_type.value[0].ljust(pad, " ") + ", ".join(obj_type.value[1:])
+        for obj_type in ObjectType
+    ]
     return "\n".join([header, *lines])
 
 
@@ -191,7 +194,9 @@ def parse_filter_string(
     assert object_type, "Invalid object type detected in filter string."
 
     # Verify the given filter code
-    filter_mode = next((mode for mode in FilterMode if mode.value == match.group()), None)
+    filter_mode = next(
+        (mode for mode in FilterMode if mode.value == match.group()), None
+    )
     assert filter_mode, f"Invalid filter mode detected: {match.group()}."
 
     # Extract filter content, after the filter code
@@ -235,7 +240,9 @@ def check_filter_match(jockey_filter: JockeyFilter, value: str) -> bool:
     return action(jockey_filter.content, value)
 
 
-def check_filter_batch_match(filter_list: Iterable[JockeyFilter], batch: Iterable[str]) -> bool:
+def check_filter_batch_match(
+    filter_list: Iterable[JockeyFilter], batch: Iterable[str]
+) -> bool:
     """
     Check if a batch of Juju objects (as strings) satisfies a set of filters.
     The batch must satisfy all positve filters and trigger no negative filters
@@ -300,7 +307,6 @@ def is_app_principal(status: JujuStatus, app_name: str) -> bool:
 def get_principal_unit_for_subordinate(status: JujuStatus, unit_name: str) -> str:
     """Get the name of a princpal unit for a given subordinate unit."""
     for app, data in status["applications"].items():
-
         # Skip other subordinate applications
         if not is_app_principal(status, app):
             continue
@@ -364,7 +370,6 @@ def get_units(status: JujuStatus) -> Generator[str, None, None]:
         All unit names, in no particular order, as a generator.
     """
     for app in get_applications(status):
-
         # Skip subordinate applicaitons
         if not is_app_principal(status, app):
             continue
@@ -447,7 +452,9 @@ def get_ips(status: JujuStatus) -> Generator[str, None, None]:
             yield address
 
 
-def charm_to_applications(status: JujuStatus, charm_name: str) -> Generator[str, None, None]:
+def charm_to_applications(
+    status: JujuStatus, charm_name: str
+) -> Generator[str, None, None]:
     """
     Given a charm name, get all applications using it, as a generator. If no
     matching charm is found, the generator will be empty.
@@ -492,7 +499,9 @@ def application_to_charm(status: JujuStatus, app_name: str) -> Optional[str]:
         return None
 
 
-def application_to_units(status: JujuStatus, app_name: str) -> Generator[str, None, None]:
+def application_to_units(
+    status: JujuStatus, app_name: str
+) -> Generator[str, None, None]:
     """
     Given an application name, get all of its untis, as a generator.  If no
     matching application is found, the generator will be empty.
@@ -510,7 +519,6 @@ def application_to_units(status: JujuStatus, app_name: str) -> Generator[str, No
         All units of the given application.
     """
     for application, data in status["applications"].items():
-
         if application != app_name:
             continue
 
@@ -566,7 +574,6 @@ def subordinate_unit_to_principal_unit(status: JujuStatus, unit_name: str) -> st
         return unit_name
 
     for p_app in app_data[app]["subordinate-to"]:
-
         if not is_app_principal(status, p_app):
             continue
 
@@ -619,7 +626,6 @@ def machine_to_units(status: JujuStatus, machine: str) -> Generator[str, None, N
     """
 
     for unit in get_units(status):
-
         # Skip subordinate units
         app = unit_to_application(status, unit)
         assert app
@@ -632,7 +638,9 @@ def machine_to_units(status: JujuStatus, machine: str) -> Generator[str, None, N
             if "subordinates" not in status["applications"][app]["units"][unit]:
                 continue
 
-            for subordinate_unit in status["applications"][app]["units"][unit]["subordinates"]:
+            for subordinate_unit in status["applications"][app]["units"][unit][
+                "subordinates"
+            ]:
                 yield subordinate_unit
 
 
@@ -756,7 +764,9 @@ def hostname_to_machine(status: JujuStatus, hostname: str) -> str:
     raise Exception(f"No machine found for hostname {hostname}")
 
 
-def filter_units(status: JujuStatus, filters: List[JockeyFilter]) -> Generator[str, None, None]:
+def filter_units(
+    status: JujuStatus, filters: List[JockeyFilter]
+) -> Generator[str, None, None]:
     """
     Get all units from a Juju status that match a list of filters.
 
@@ -796,7 +806,9 @@ def filter_units(status: JujuStatus, filters: List[JockeyFilter]) -> Generator[s
             # Check charm filters
             charm = application_to_charm(status, app)
             assert charm
-            if not all(check_filter_match(c_filter, charm) for c_filter in charm_filters):
+            if not all(
+                check_filter_match(c_filter, charm) for c_filter in charm_filters
+            ):
                 continue
 
         # If there aren't any machine, IP, or hostname filters, just yield
@@ -807,19 +819,26 @@ def filter_units(status: JujuStatus, filters: List[JockeyFilter]) -> Generator[s
         # Check machine filters
         machine = unit_to_machine(status, unit)
         assert machine
-        if not all(check_filter_match(m_filter, machine) for m_filter in machine_filters):
+        if not all(
+            check_filter_match(m_filter, machine) for m_filter in machine_filters
+        ):
             continue
 
         # Check hostname filters
         hostname = machine_to_hostname(status, machine)
         assert hostname
-        if not all(check_filter_match(h_filter, hostname) for h_filter in hostname_filters):
+        if not all(
+            check_filter_match(h_filter, hostname) for h_filter in hostname_filters
+        ):
             continue
 
         # Check IP filters
         ips = machine_to_ips(status, machine)
         assert ips
-        if not all(any(check_filter_match(i_filter, ip) for ip in ips) for i_filter in ip_filters):
+        if not all(
+            any(check_filter_match(i_filter, ip) for ip in ips)
+            for i_filter in ip_filters
+        ):
             continue
 
         # Check availability zone filter
@@ -830,7 +849,9 @@ def filter_units(status: JujuStatus, filters: List[JockeyFilter]) -> Generator[s
         yield unit
 
 
-def filter_machines(status: JujuStatus, filters: List[JockeyFilter]) -> Generator[str, None, None]:
+def filter_machines(
+    status: JujuStatus, filters: List[JockeyFilter]
+) -> Generator[str, None, None]:
     """
     Get all machines from a Juju status that match a list of filters.
 
@@ -858,13 +879,17 @@ def filter_machines(status: JujuStatus, filters: List[JockeyFilter]) -> Generato
 
     for machine in get_machines(status):
         # Check machine filters
-        if not all(check_filter_match(m_filter, machine) for m_filter in machine_filters):
+        if not all(
+            check_filter_match(m_filter, machine) for m_filter in machine_filters
+        ):
             continue
 
         # Check hostname filters
         hostname = machine_to_hostname(status, machine)
         assert hostname
-        if not all(check_filter_match(h_filter, hostname) for h_filter in hostname_filters):
+        if not all(
+            check_filter_match(h_filter, hostname) for h_filter in hostname_filters
+        ):
             continue
 
         # Check IP filters
@@ -907,7 +932,9 @@ RETRIEVAL_MAP = {
 }
 
 
-def get_juju_status(file: str = "", model_name: str = "", cache_age: float = 300) -> JujuStatus:
+def get_juju_status(
+    file: str = "", model_name: str = "", cache_age: float = 300
+) -> JujuStatus:
     """
     Loads a Juju status from a file, a Jockey cache, or the juju CLI.
     Providing a file ignores all caching.
@@ -943,7 +970,11 @@ def get_juju_status(file: str = "", model_name: str = "", cache_age: float = 300
 
     # Get Juju status from CLI and update cache
     logger.debug("Running a juju command to get status")
-    status = json.loads(subprocess.run(["juju", "status", "--format", "json"], capture_output=True, text=True).stdout)
+    status = json.loads(
+        subprocess.run(
+            ["juju", "status", "--format", "json"], capture_output=True, text=True
+        ).stdout
+    )
     update_cache(cache_context, status)
 
     return status
@@ -980,7 +1011,12 @@ def get_juju_status(file: str = "", model_name: str = "", cache_age: float = 300
 
 
 def query(
-    object_type: str, filter_strings: List[str], model: str = "", file: str = "", verbosity: int = 0
+    object_type: str,
+    filter_strings: List[str],
+    model: str = "",
+    file: str = "",
+    verbosity: int = 0,
+    status: Optional[JujuStatus] = None,
 ) -> Generator[str, None, None]:
     """
     Perform a Jockey query.  Use this fucntion as an entry point.
@@ -1001,7 +1037,11 @@ def query(
     query_result (List[str])
         A list of objects matching the query.  May be empty.
     """
-    logger.debug("Starting Jockey query with: object=%r filter_strings=%r", object_type, filter_strings)
+    logger.debug(
+        "Starting Jockey query with: object=%r filter_strings=%r",
+        object_type,
+        filter_strings,
+    )
     configure_logging(verbosity)
 
     # Convert and validate object type to query
@@ -1016,6 +1056,7 @@ def query(
     filters = [parse_filter_string(filter_str) for filter_str in filter_strings]
 
     # Get the relevant Juju status
-    status = get_juju_status(file=file, model_name=model)
+    if not status:
+        status = get_juju_status(file=file, model_name=model)
 
     return filter_function(status, filters)
