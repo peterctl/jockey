@@ -10,16 +10,14 @@ import logging
 import os
 import re
 import subprocess
-from typing import Any, Dict, Generator, Iterable, List, Optional
+from typing import Generator, Iterable, List, Optional
 
+from juju.client.client import FullStatus as JujuStatus
 from jockey.cache import load_cache, new_cache_context, update_cache
 from jockey.log import configure_logging
 
 
 logger = logging.getLogger(__name__)
-
-
-JujuStatus = Dict[str, Any]
 
 
 class FilterMode(Enum):
@@ -301,7 +299,7 @@ def is_app_principal(status: JujuStatus, app_name: str) -> bool:
     is_principal (bool)
         Whether the indicated application is principal.
     """
-    return "subordinate-to" not in status["applications"][app_name]
+    return status["applications"][app_name].get("subordinate-to") is None
 
 
 def get_principal_unit_for_subordinate(status: JujuStatus, unit_name: str) -> str:
@@ -957,7 +955,7 @@ def get_juju_status(
         logger.debug("Loading local Juju status from %r", file)
         # print(dir(file))
         with open(file, "r") as f:
-            return json.loads(f.read())
+            return JujuStatus.from_json(f.read())
 
     # Get model name and build a CacheContext
     model_name = model_name or os.environ.get("JUJU_MODEL", None)
