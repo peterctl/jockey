@@ -299,7 +299,7 @@ def is_app_principal(status: JujuStatus, app_name: str) -> bool:
     is_principal (bool)
         Whether the indicated application is principal.
     """
-    return status["applications"][app_name].get("subordinate-to") is None
+    return not bool(status["applications"][app_name].get("subordinate-to"))
 
 
 def get_principal_unit_for_subordinate(status: JujuStatus, unit_name: str) -> str:
